@@ -7,7 +7,7 @@ from google.oauth2 import service_account
 from googleapiclient.discovery import build
 
 # --- Konfigurasi Google Sheets ---
-SERVICE_ACCOUNT_FILE = 'face-recognition-481607-a68b8c6ea07c.json'  # Ganti sesuai nama file JSON Anda
+SERVICE_ACCOUNT_FILE = 'face-recognition-481607-c42b491e98b3.json'  # Ganti sesuai nama file JSON Anda
 SPREADSHEET_ID = '1OhPYhrGuJt7UgLQhTDRXV7stff18Ao7spwzofrDTgO4'      # Ganti dengan Spreadsheet ID Google Sheets Anda
 SHEET_NAME = 'Sheet1'   # Ganti sesuai nama sheet/tab di Google Sheets Anda
 
