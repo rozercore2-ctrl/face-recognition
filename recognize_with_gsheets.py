@@ -12,16 +12,16 @@ from google.auth.exceptions import RefreshError
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # --- Konfigurasi (GANTI PLACEHOLDER) ---
-SERVICE_ACCOUNT_FILE = 'D:\\face_recog\\face-recognition-481607-d5bbb1c3045d.json'
+SERVICE_ACCOUNT_FILE = 'D:\\face_recog\\face-recognition-481607-b0cb180a1d23.json'
 SPREADSHEET_ID = '1OhPYhrGuJt7UgLQhTDRXV7stff18Ao7spwzofrDTgO4'
 SHEET_NAME = 'Sheet1'
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 SCOPES_IAM = ['https://www.googleapis.com/auth/cloud-platform']
 
 PROJECT_ID = 'face-recognition-481607'
-SERVICE_ACCOUNT_EMAIL = 'your-service-account@face-recognition-481607.iam.gserviceaccount.com'
-OLD_KEY_ID = 'your-old-key-id'
-NEW_KEY_FILE_PATH = 'D:\\face_recog\\new-face-recognition-key.json'
+SERVICE_ACCOUNT_EMAIL = 'face-recognition@face-recognition-481607.iam.gserviceaccount.com'
+OLD_KEY_ID = 'd5bbb1c3045db0ce54af77bf4035d920cfb35ba5'
+NEW_KEY_FILE_PATH = 'D:\\face_recog\\face-recognition-481607-b0cb180a1d23.json'
 
 creds = None
 service = None

@@ -19,8 +19,8 @@ def recognize_face(label_dict, model_path='trainer.yml'):
     recognizer.read(model_path)
     face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
     
-    cap = cv2.VideoCapture(1)
-    if not cap.isOpened(1):
+    cap = cv2.VideoCapture(0)
+    if not cap.isOpened(0):
         print("Error: Tidak bisa mengakses kamera.")
         return
     
