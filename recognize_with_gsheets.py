@@ -1,87 +1,181 @@
 import cv2
 import os
 import json
+import base64
+import logging
+import time
 from datetime import datetime
-
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
+from google.auth.exceptions import RefreshError
 
-# --- Konfigurasi Google Sheets ---
-SERVICE_ACCOUNT_FILE = 'face-recognition-481607-c42b491e98b3.json'  # Ganti sesuai nama file JSON Anda
-SPREADSHEET_ID = '1OhPYhrGuJt7UgLQhTDRXV7stff18Ao7spwzofrDTgO4'      # Ganti dengan Spreadsheet ID Google Sheets Anda
-SHEET_NAME = 'Sheet1'   # Ganti sesuai nama sheet/tab di Google Sheets Anda
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
+# --- Konfigurasi (GANTI PLACEHOLDER) ---
+SERVICE_ACCOUNT_FILE = 'D:\\face_recog\\face-recognition-481607-d5bbb1c3045d.json'
+SPREADSHEET_ID = '1OhPYhrGuJt7UgLQhTDRXV7stff18Ao7spwzofrDTgO4'
+SHEET_NAME = 'Sheet1'
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
+SCOPES_IAM = ['https://www.googleapis.com/auth/cloud-platform']
 
-creds = service_account.Credentials.from_service_account_file(
-    SERVICE_ACCOUNT_FILE, scopes=SCOPES)
-service = build('sheets', 'v4', credentials=creds)
-sheet = service.spreadsheets()
+PROJECT_ID = 'face-recognition-481607'
+SERVICE_ACCOUNT_EMAIL = 'your-service-account@face-recognition-481607.iam.gserviceaccount.com'
+OLD_KEY_ID = 'your-old-key-id'
+NEW_KEY_FILE_PATH = 'D:\\face_recog\\new-face-recognition-key.json'
+
+creds = None
+service = None
+sheet = None
+
+def initialize_google_sheets(retry_count=3):
+    global creds, service, sheet
+    for attempt in range(retry_count):
+        try:
+            creds = service_account.Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
+            service = build('sheets', 'v4', credentials=creds)
+            sheet = service.spreadsheets()
+            logging.info("Google Sheets berhasil diinisialisasi.")
+            return True
+        except Exception as e:
+            logging.warning(f"Gagal inisialisasi (attempt {attempt+1}): {e}")
+            if attempt < retry_count - 1:
+                time.sleep(2)
+            else:
+                logging.error("Gagal setelah retry.")
+                raise
+
+def rotate_service_account_key():
+    global SERVICE_ACCOUNT_FILE
+    try:
+        if PROJECT_ID == 'face-recognition-481607' or SERVICE_ACCOUNT_EMAIL.startswith('your-'):
+            logging.error("Placeholder belum diganti!")
+            raise ValueError("Placeholder invalid.")
+        
+        temp_creds = service_account.Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES_IAM)
+        iam_service = build('iam', 'v1', credentials=temp_creds)
+        
+        name = f'projects/{PROJECT_ID}/serviceAccounts/{SERVICE_ACCOUNT_EMAIL}'
+        key_response = iam_service.projects().serviceAccounts().keys().create(name=name, body={}).execute()
+        
+        private_key_data = base64.b64decode(key_response['privateKeyData']).decode('utf-8')
+        key_json = json.loads(private_key_data)
+        with open(NEW_KEY_FILE_PATH, 'w') as f:
+            json.dump(key_json, f)
+        
+        logging.info(f"Key baru dibuat: {NEW_KEY_FILE_PATH}")
+        
+        if OLD_KEY_ID:
+            iam_service.projects().serviceAccounts().keys().delete(name=f'{name}/keys/{OLD_KEY_ID}').execute()
+            logging.info(f"Key lama {OLD_KEY_ID} dihapus")
+        
+        SERVICE_ACCOUNT_FILE = NEW_KEY_FILE_PATH
+        initialize_google_sheets()
+        logging.info("Rotasi key berhasil.")
+        
+    except Exception as e:
+        logging.error(f"Gagal rotasi key: {e}")
+        raise
 
 def write_header_if_empty():
-    result = sheet.values().get(
-        spreadsheetId=SPREADSHEET_ID,
-        range=f"{SHEET_NAME}!A1:F1").execute()
-    values = result.get('values', [])
-    if not values:
-        header = [['ID', 'Nama', 'Keterangan', 'Hari', 'Tanggal', 'Jam']]
-        body = {'values': header}
-        sheet.values().update(
-            spreadsheetId=SPREADSHEET_ID,
-            range=f"{SHEET_NAME}!A1:F1",
-            valueInputOption='RAW',
-            body=body).execute()
-        print("Header ditulis di Google Sheets")
+    try:
+        result = sheet.values().get(spreadsheetId=SPREADSHEET_ID, range=f"{SHEET_NAME}!A1:F1").execute()
+        values = result.get('values', [])
+        if not values:
+            header = [['ID', 'Nama', 'Keterangan', 'Hari', 'Tanggal', 'Jam']]
+            body = {'values': header}
+            sheet.values().update(spreadsheetId=SPREADSHEET_ID, range=f"{SHEET_NAME}!A1:F1", valueInputOption='RAW', body=body).execute()
+            logging.info("Header ditulis.")
+        else:
+            logging.info("Header ada.")
+    except RefreshError as e:
+        logging.error(f"RefreshError: {e}. Rotasi key...")
+        rotate_service_account_key()
+        write_header_if_empty()
+    except Exception as e:
+        logging.error(f"Error lain: {e}")
+        raise
+
+def load_today_attendance(file_path='attendance_today.json'):
+    """
+    Load absensi hari ini dari file lokal (backup untuk cek duplikasi).
+    Reset otomatis jika hari baru.
+    """
+    today = datetime.now().date().isoformat()
+    if os.path.exists(file_path):
+        with open(file_path, 'r') as f:
+            data = json.load(f)
+        if data.get('date') != today:
+            data = {'date': today, 'users': []}
+            with open(file_path, 'w') as f:
+                json.dump(data, f)
     else:
-        print("Header sudah ada di Google Sheets")
+        data = {'date': today, 'users': []}
+        with open(file_path, 'w') as f:
+            json.dump(data, f)
+    return data
+
+def save_today_attendance(data, file_path='attendance_today.json'):
+    with open(file_path, 'w') as f:
+        json.dump(data, f, indent=4)
 
 def is_attendance_recorded(user_id):
+    """
+    Cek duplikasi: Pertama cek file lokal, lalu Google Sheets.
+    Jika ada di lokal, langsung return True.
+    """
+    today_data = load_today_attendance()
+    if user_id in today_data['users']:
+        logging.info(f"Absensi {user_id} sudah tercatat hari ini (cek lokal).")
+        return True
+    
     try:
-        result = sheet.values().get(
-            spreadsheetId=SPREADSHEET_ID,
-            range=f"{SHEET_NAME}!A2:F").execute()
+        # Query SEMUA data di Sheets
+        result = sheet.values().get(spreadsheetId=SPREADSHEET_ID, range=f"{SHEET_NAME}!A:F").execute()
         values = result.get('values', [])
         today_str = datetime.now().strftime("%Y-%m-%d")
-        for row in values:
+        
+        logging.info(f"Cek Sheets untuk {user_id} pada {today_str}. Total baris: {len(values)}")
+        
+        for i, row in enumerate(values):
             if len(row) >= 5:
-                recorded_id = row[0]
-                recorded_date = row[4]  # tanggal di kolom E (indeks 4)
+                recorded_id = row[0].strip()
+                recorded_date = row[4].strip()
+                logging.debug(f"Baris {i+1}: ID='{recorded_id}', Tanggal='{recorded_date}'")
                 if recorded_id == user_id and recorded_date == today_str:
+                    # Simpan ke lokal untuk future cek
+                    today_data['users'].append(user_id)
+                    save_today_attendance(today_data)
+                    logging.info(f"Absensi {user_id} sudah tercatat (Sheets, baris {i+1}).")
                     return True
+        logging.info(f"Absensi {user_id} belum tercatat.")
         return False
     except Exception as e:
-        print(f"Error saat cek absensi di Google Sheets: {e}")
-        return False
+        logging.error(f"Error cek Sheets: {e}. Gunakan cek lokal saja.")
+        return user_id in today_data['users']
 
 def append_attendance_to_sheets_if_not_exists(user_id, name, status='Hadir'):
     if is_attendance_recorded(user_id):
-        print(f"Absensi untuk {name} sudah tercatat hari ini.")
+        logging.info(f"Absensi untuk {name} sudah tercatat hari ini. Lewati.")
         return
     now = datetime.now()
-    hari_eng = now.strftime("%A")
-    hari_indonesia = {
-        "Monday": "Senin",
-        "Tuesday": "Selasa",
-        "Wednesday": "Rabu",
-        "Thursday": "Kamis",
-        "Friday": "Jumat",
-        "Saturday": "Sabtu",
-        "Sunday": "Minggu"
-    }.get(hari_eng, hari_eng)
+    hari_indonesia = {"Monday": "Senin", "Tuesday": "Selasa", "Wednesday": "Rabu", "Thursday": "Kamis", "Friday": "Jumat", "Saturday": "Sabtu", "Sunday": "Minggu"}.get(now.strftime("%A"), now.strftime("%A"))
     tanggal = now.strftime("%Y-%m-%d")
     jam = now.strftime("%H:%M:%S")
     values = [[user_id, name, status, hari_indonesia, tanggal, jam]]
     body = {'values': values}
     try:
-        sheet.values().append(
-            spreadsheetId=SPREADSHEET_ID,
-            range=f"{SHEET_NAME}!A:F",
-            valueInputOption='USER_ENTERED',
-            body=body
-        ).execute()
-        print(f"Data absensi {name} ({user_id}) berhasil dikirim ke Google Sheets.")
+        sheet.values().append(spreadsheetId=SPREADSHEET_ID, range=f"{SHEET_NAME}!A:F", valueInputOption='USER_ENTERED', body=body).execute()
+        # Simpan ke lokal setelah berhasil append
+        today_data = load_today_attendance()
+        today_data['users'].append(user_id)
+        save_today_attendance(today_data)
+        logging.info(f"Absensi {name} ({user_id}) berhasil dikirim.")
+    except RefreshError as e:
+        logging.error(f"RefreshError saat append: {e}. Rotasi key...")
+        rotate_service_account_key()
+        append_attendance_to_sheets_if_not_exists(user_id, name, status)
     except Exception as e:
-        print(f"Gagal mengirim data ke Google Sheets: {e}")
+        logging.error(f"Gagal kirim: {e}")
 
 def load_users_data(users_file='dataset/users.json'):
     if os.path.exists(users_file):
@@ -100,23 +194,30 @@ def load_label_dict(dataset_path='dataset/'):
     return label_dict if label_dict else None
 
 def recognize_face(model_path='trainer.yml', dataset_path='dataset/'):
-    write_header_if_empty()
+    try:
+        initialize_google_sheets()
+        write_header_if_empty()
+    except RefreshError as e:
+        logging.error(f"Error awal: {e}. Rotasi key...")
+        rotate_service_account_key()
+        write_header_if_empty()
+    
     if not os.path.exists(model_path):
-        print("Model belum ada, lakukan training terlebih dahulu.")
+        logging.error("Model belum ada.")
         return
     label_dict = load_label_dict(dataset_path)
     users_data = load_users_data(os.path.join(dataset_path, 'users.json'))
     if label_dict is None:
-        print("Label dictionary kosong, jalankan training dulu.")
+        logging.error("Label kosong.")
         return
     recognizer = cv2.face.LBPHFaceRecognizer_create()
     recognizer.read(model_path)
     face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
     cap = cv2.VideoCapture(0)
     if not cap.isOpened():
-        print("Kamera tidak dapat diakses.")
+        logging.error("Kamera tidak akses.")
         return
-    print("Tekan 'q' untuk keluar.")
+    logging.info("Tekan 'q' untuk keluar.")
     offset_y_below_box = 30
     recognized_today = set()
     while True:
@@ -149,7 +250,7 @@ def recognize_face(model_path='trainer.yml', dataset_path='dataset/'):
             break
     cap.release()
     cv2.destroyAllWindows()
-    print("Recognition selesai.")
+    logging.info("Recognition selesai.")
 
 if __name__ == '__main__':
     recognize_face()
