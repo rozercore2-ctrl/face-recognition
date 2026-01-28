@@ -16,7 +16,6 @@ def load_users_data(users_file='dataset/users.json'):
     return {}
 
 def save_users_data(users_data, users_file='dataset/users.json'):
-    # Simpan data user ke JSON dengan indentasi
     with open(users_file, 'w') as f:
         json.dump(users_data, f, indent=4)
 
@@ -42,8 +41,6 @@ def register_face(num_samples=40, dataset_path='dataset/'):
     create_dataset_folder(dataset_path)
     users_file = os.path.join(dataset_path, 'users.json')
     users_data = load_users_data(users_file)
-
-    # Cek apakah nama sudah ada (case insensitive dan strip whitespace)
     existing_user_id = None
     for uid, data in users_data.items():
         if data['nama'].strip().lower() == person_name.lower():
