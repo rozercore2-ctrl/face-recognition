@@ -15,21 +15,14 @@ def save_attendance(data, file_path='attendance_log.json'):
 def log_attendance(user_id, name, file_path='attendance_log.json'):
     attendance = load_attendance(file_path)
     
-    # Buat timestamp saat ini
     time_now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    
-    # Simpan data ke dict dengan user_id sebagai key
-    # Jika user sudah pernah hadir hari ini, tidak perlu tambah lagi (optional)
     today = datetime.now().date().isoformat()
 
-    # Inisialisasi list absensi harian jika belum ada
     if user_id not in attendance:
         attendance[user_id] = {
             "name": name,
             "dates": []
         }
-        
-    # Cek apakah user sudah absen hari ini
     if not any(log.split()[0] == today for log in attendance[user_id]["dates"]):
         attendance[user_id]["dates"].append(time_now)
         print(f"Absensi tercatat: {name} pada {time_now}")
