@@ -25,8 +25,7 @@ def recognize_face(label_dict, model_path='trainer.yml'):
         return
     
     print("Mulai recognition. Tekan 'q' untuk berhenti.")
-    offset_y_below_box = 30  # jarak vertikal teks ID di bawah kotak wajah
-    
+    offset_y_below_box = 30  
     while True:
         ret, frame = cap.read()
         if not ret:
