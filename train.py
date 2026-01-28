@@ -19,7 +19,7 @@ def train_model(dataset_path='dataset/', model_path='trainer.yml'):
     
     for person_name in os.listdir(dataset_path):
         person_folder = os.path.join(dataset_path, person_name)
-        if os.path.isdir(person_folder) and person_name != 'users.json':  # Skip file users.json
+        if os.path.isdir(person_folder) and person_name != 'users.json': 
             label_dict[label_id] = person_name
             for img_name in os.listdir(person_folder):
                 img_path = os.path.join(person_folder, img_name)

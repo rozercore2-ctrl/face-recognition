@@ -19,9 +19,9 @@ SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 SCOPES_IAM = ['https://www.googleapis.com/auth/cloud-platform']
 
 PROJECT_ID = 'face-recognition-481607'
-SERVICE_ACCOUNT_EMAIL = 'face-recognition@face-recognition-481607.iam.gserviceaccount.com'
+SERVICE_ACCOUNT_EMAIL = 'your-service-account@face-recognition-481607.iam.gserviceaccount.com'
 OLD_KEY_ID = 'd5bbb1c3045db0ce54af77bf4035d920cfb35ba5'
-NEW_KEY_FILE_PATH = 'D:\\face_recog\\face-recognition-481607-b0cb180a1d23.json'
+NEW_KEY_FILE_PATH = 'D:\\face_recog\\new-face-recognition-key.json'
 
 creds = None
 service = None
