@@ -11,7 +11,6 @@ from google.auth.exceptions import RefreshError
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# --- Konfigurasi (GANTI PLACEHOLDER) ---
 SERVICE_ACCOUNT_FILE = 'D:\\face_recog\\face-recognition-481607-b0cb180a1d23.json'
 SPREADSHEET_ID = '1OhPYhrGuJt7UgLQhTDRXV7stff18Ao7spwzofrDTgO4'
 SHEET_NAME = 'Sheet1'
@@ -129,7 +128,6 @@ def is_attendance_recorded(user_id):
         return True
     
     try:
-        # Query SEMUA data di Sheets
         result = sheet.values().get(spreadsheetId=SPREADSHEET_ID, range=f"{SHEET_NAME}!A:F").execute()
         values = result.get('values', [])
         today_str = datetime.now().strftime("%Y-%m-%d")
@@ -142,7 +140,6 @@ def is_attendance_recorded(user_id):
                 recorded_date = row[4].strip()
                 logging.debug(f"Baris {i+1}: ID='{recorded_id}', Tanggal='{recorded_date}'")
                 if recorded_id == user_id and recorded_date == today_str:
-                    # Simpan ke lokal untuk future cek
                     today_data['users'].append(user_id)
                     save_today_attendance(today_data)
                     logging.info(f"Absensi {user_id} sudah tercatat (Sheets, baris {i+1}).")
@@ -165,7 +162,6 @@ def append_attendance_to_sheets_if_not_exists(user_id, name, status='Hadir'):
     body = {'values': values}
     try:
         sheet.values().append(spreadsheetId=SPREADSHEET_ID, range=f"{SHEET_NAME}!A:F", valueInputOption='USER_ENTERED', body=body).execute()
-        # Simpan ke lokal setelah berhasil append
         today_data = load_today_attendance()
         today_data['users'].append(user_id)
         save_today_attendance(today_data)
